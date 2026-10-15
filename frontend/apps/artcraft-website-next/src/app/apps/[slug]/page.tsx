@@ -85,9 +85,10 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const release = craftAppRelease(app);
   // The hero's download is ArtCraft Launcher, which installs this app and keeps
   // it updated; the app's own installers are in #get-it, under the launcher.
-  const launcherDownloads = craftLauncherRecommended();
+  // An app with no release yet has nothing for the launcher to install.
+  const launcherDownloads = release ? craftLauncherRecommended() : [];
   const allLauncherDownloads = craftLauncherDownloads();
-  const hasDownload = launcherDownloads.length > 0 || release !== null;
+  const hasDownload = release !== null;
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;
   const shareUrl = siteUrl(craftAppPath(app));

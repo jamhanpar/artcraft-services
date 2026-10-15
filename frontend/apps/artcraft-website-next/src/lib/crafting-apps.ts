@@ -47,6 +47,8 @@ export type CraftShot = {
   alt: string;
   /** Portrait page (7:9) rather than a 16:10 window capture. */
   portrait?: boolean;
+  /** 16:9 window capture rather than 16:10. */
+  wide?: boolean;
 };
 
 /** A feature clip with its own section under the hero. */
@@ -60,6 +62,8 @@ export type CraftDemo = {
   headline: [before: string, accent: string, after: string];
   lede: string;
   caption: string;
+  /** What happens in the clip, for screen readers. */
+  alt: string;
 };
 
 export type CraftApp = {
@@ -644,6 +648,7 @@ export const CRAFTING_APPS: CraftApp[] = [
       headline: ["Design ", "together", ", in real time."],
       lede: "Host the open file from the app or a server of your own, share the invite link, and edit it together. Changes sync live with cursors, selections and cursor chat, and undo takes back only your own.",
       caption: "A host and a guest editing one file",
+      alt: "Two people editing one FigCraft file live: each sees the other's cursor, selection and edits land instantly, ending on the FigCraft end card.",
     },
   },
   {
