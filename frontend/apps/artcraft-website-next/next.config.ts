@@ -67,18 +67,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // The hero wall uses WebGL video textures, which need CORS-clean sources.
-  // The showcase CDN sends no Access-Control-Allow-Origin header, so these
-  // clips use a same-origin proxy. Other marketing media lives in public/.
-  async rewrites() {
-    return [
-      // Showcase clips for the hero wall (see cdnMediaUrl in lib/links.ts).
-      {
-        source: "/cdn-media/:path*",
-        destination: "https://frontend-cdn.fakeyou.com/:path*",
-      },
-    ];
-  },
 };
 
 export default nextConfig;

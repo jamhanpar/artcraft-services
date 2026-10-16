@@ -78,9 +78,8 @@ export const HERO_VIDEO_URL =
 // wall adapts to any count and mix of aspects, so the count below is the
 // only thing to change when clips are added or dropped.
 //
-// Sources live on the FakeYou CDN as /videos/001.mp4 .. /videos/035.mp4 and
-// reach the page through the same-origin /cdn-media proxy, since WebGL video
-// textures require CORS-clean sources. When more clips are uploaded, raising
+// Sources live on the R2 CDN as /videos/001.mp4 .. /videos/035.mp4 (see
+// cdnMediaUrl; it must keep sending CORS headers for the WebGL textures). When more clips are uploaded, raising
 // this count is the only change needed — every card/clip ratio works (cards
 // share clip textures; repeats are spread by least-recently-shown rebirth).
 const SHOWCASE_CLIP_COUNT = 35;

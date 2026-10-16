@@ -25,12 +25,13 @@ export function mediaUrl(path: string): string {
   return `${MEDIA_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-// Showcase clips live on the FakeYou CDN, which serves no
-// Access-Control-Allow-Origin header. The hero wall draws them as WebGL
-// video textures, which require CORS-clean sources, so they go through the
-// same-origin /cdn-media rewrite (see next.config.ts).
+// Showcase clips are served straight from the R2 CDN, never proxied (proxying
+// bills their bandwidth to Netlify). The CDN sends Access-Control-Allow-Origin,
+// which the hero wall's WebGL video textures need.
+const CDN_MEDIA_BASE = "https://cdn-w.storyteller.ai";
+
 export function cdnMediaUrl(path: string): string {
-  return `/cdn-media${path.startsWith("/") ? path : `/${path}`}`;
+  return `${CDN_MEDIA_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export const SOCIAL_LINKS = {

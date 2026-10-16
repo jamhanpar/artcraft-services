@@ -2,7 +2,7 @@
 #   Base directory:    frontend/apps/artcraft-website-next
 #   (this app is standalone — its own package-lock.json, not the Nx workspace)
 # Manage the build command and publish directory here; leave those UI fields empty.
-# The Next.js runtime handles routing, the /cdn-media proxy rewrite, and the
+# The Next.js runtime handles routing and the
 # legacy-route redirects declared in next.config.ts. Other media is in public/.
 #
 # Google Analytics: set NEXT_PUBLIC_GA_MEASUREMENT_ID (G-XXXXXXXXXX) in the

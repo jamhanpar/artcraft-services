@@ -4,7 +4,7 @@ import {
   type CraftRelease,
   type CraftReleaseAsset,
 } from "./crafting-app-releases";
-import { mediaUrl } from "./links";
+import { cdnMediaUrl, mediaUrl } from "./links";
 
 // The Crafting Apps family: open-source native apps from the ArtCraft team,
 // each in its own storytold/<slug> repo. One entry drives the /apps hub card,
@@ -202,7 +202,7 @@ export const CRAFTING_APPS: CraftApp[] = [
         file: "hero.webp",
         source: "shot-1-neon.png",
         caption: "Neon Drive — made in VectorCraft",
-        alt: "VectorCraft editing the Neon Drive poster, with the title's live outer glow settings in the Appearance panel and its character settings in the Properties panel",
+        alt: "VectorCraft editing the Neon Drive poster: the title is selected, the Appearance panel lists its live outer glow, and the Properties panel shows its character settings",
       },
       {
         file: "ribbons.webp",
@@ -217,6 +217,18 @@ export const CRAFTING_APPS: CraftApp[] = [
         alt: "VectorCraft direct-selecting the anchor points and bezier handles of a crescent moon, with the contextual task bar below it",
       },
       {
+        file: "revolve.webp",
+        source: "shot-6-revolve.png",
+        caption: "3D revolve with vector shading",
+        alt: "VectorCraft with a still life of a vase, a bowl, a sphere and a bottle made with 3D revolve; the vase is selected and the Revolve dialog shows its rotation, cap and view settings beside the rotation gizmo",
+      },
+      {
+        file: "dimensions.webp",
+        source: "shot-7-dimensions.png",
+        caption: "Dimensions that follow the art",
+        alt: "VectorCraft in its light theme with a bracket drawing measured by linear, angular, diameter and radius dimensions, the Dimension tool active and the Properties panel showing the selected dimension's units, precision and style",
+      },
+      {
         file: "perspective.webp",
         source: "shot-5-perspective.png",
         caption: "Perspective grid, still editable",
@@ -229,6 +241,15 @@ export const CRAFTING_APPS: CraftApp[] = [
         alt: "VectorCraft in its light theme with four artboards: shape booleans, a gradient mesh, a live radial repeat and an envelope distort",
       },
     ],
+    demo: {
+      src: cdnMediaUrl("/videos/vectorcraft-mcp-anime-film.mp4"),
+      poster: "mcp-poster.webp",
+      label: "MCP server",
+      headline: ["Describe it. Your agent ", "draws", " it."],
+      lede: "Every menu item, tool, panel and dialog is a command, and VectorCraft's MCP server hands all of them to your AI agent. Ask for a piece and watch it drawn live as real, editable vector art.",
+      caption: "An agent drawing a poster over MCP",
+      alt: "A prompt for an anime movie poster of a night train under a huge moon is sent to an AI agent, which draws it live in VectorCraft through its MCP server while the tool calls scroll beside the canvas, ending on the VectorCraft end card.",
+    },
   },
   {
     slug: "filmcraft",
@@ -642,7 +663,7 @@ export const CRAFTING_APPS: CraftApp[] = [
       },
     ],
     demo: {
-      src: "https://frontend-cdn.fakeyou.com/videos/figcraft-collab-web.mp4",
+      src: cdnMediaUrl("/videos/figcraft-collab-web.mp4"),
       poster: "collab-poster.webp",
       label: "Live sessions",
       headline: ["Design ", "together", ", in real time."],
