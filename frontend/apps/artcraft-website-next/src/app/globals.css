@@ -104,6 +104,10 @@
 
 html {
   background: var(--bg);
+  /* Any value but visible here stops the body's overflow from moving to
+     the viewport (where it becomes hidden, which phones still let you
+     pan), so the body's clip below really trims wide decorations. */
+  overflow-x: clip;
 }
 
 body {
