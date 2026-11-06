@@ -11,22 +11,22 @@ import type { CraftAppSlug } from "./crafting-apps";
 //
 // Release tags are `v<version>` and live at github.com/storytold/<slug>.
 
-export type CraftDesktopPlatform = "macOS" | "Windows" | "Linux";
+export type CraftDesktopPlatform = "macOS" | "Windows" | "Linux" | "FreeBSD";
 
 /** Order of the per-platform download buttons. */
-export const CRAFT_DESKTOP_PLATFORMS: CraftDesktopPlatform[] = ["macOS", "Windows", "Linux"];
+export const CRAFT_DESKTOP_PLATFORMS: CraftDesktopPlatform[] = ["macOS", "Windows", "Linux", "FreeBSD"];
 
 export type CraftReleaseAsset = {
   /** Asset filename; `{slug}` and `{version}` are filled in per app. */
   file: string;
-  /** Group in the full file list. "Other" holds the FreeBSD build, web build and checksums. */
+  /** Group in the full file list. "Other" holds the web build and checksums. */
   group: CraftDesktopPlatform | "Other";
   /** Short name, e.g. "Installer (x64)". */
   label: string;
   /** One line on who should pick this file. */
   description: string;
   /** CPU architecture, used to choose between recommended Linux builds. */
-  arch?: "universal" | "x64" | "x86" | "x86_64" | "aarch64";
+  arch?: "universal" | "x64" | "x86" | "x86_64" | "aarch64" | "riscv64";
   /**
    * Offered as a platform's main download button. The first recommended
    * asset in a group is the default; a later one wins only when its `arch`
@@ -177,11 +177,32 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     description: "Plain binaries for 64-bit ARM.",
     arch: "aarch64",
   },
+  // Keep literal filenames here: the release updater extracts them from this array.
+  ...[
+    { file: "{slug}-{version}-linux-riscv64.tar.gz", label: "Tarball", description: "Plain binaries for 64-bit RISC-V.", recommended: true },
+    { file: "{slug}-{version}-linux-riscv64.deb", label: "Debian package", description: "Debian and derivatives on 64-bit RISC-V." },
+    { file: "{slug}-{version}-linux-riscv64.rpm", label: "RPM package", description: "RPM-based distributions on 64-bit RISC-V." },
+  ].map(({ file, label, description, recommended }): CraftReleaseAsset => ({
+    file,
+    group: "Linux",
+    label: `${label} (RISC-V 64)`,
+    description,
+    arch: "riscv64",
+    recommended,
+  })),
   {
-    file: "{slug}-{version}-freebsd-x86_64.tar.gz",
-    group: "Other",
-    label: "FreeBSD (x86_64)",
-    description: "Plain binaries for FreeBSD 14.",
+    file: "{slug}-{version}-linux-x86_64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (x86_64)",
+    description: "Arch Linux, Manjaro, and derivatives.",
+    arch: "x86_64",
+  },
+  {
+    file: "{slug}-{version}-linux-aarch64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (ARM64)",
+    description: "Arch Linux ARM and derivatives on 64-bit ARM.",
+    arch: "aarch64",
   },
   {
     file: "{slug}-web-{version}.zip",
@@ -194,6 +215,14 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     group: "Other",
     label: "SHA-256 checksums",
     description: "Verify any download above.",
+  },
+  {
+    file: "{slug}-{version}-freebsd-x86_64.tar.gz",
+    group: "FreeBSD",
+    label: "FreeBSD (x86_64)",
+    description: "Plain binaries for FreeBSD 15.1.",
+    arch: "x86_64",
+    recommended: true,
   },
 ];
 
@@ -208,23 +237,32 @@ export function craftRelease(
 // every app above, and the /apps pages recommend it first. Its releases ship
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
 export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
-  "0.8.1",
-  CRAFT_RELEASE_ASSETS.filter((asset) => !asset.file.startsWith("{slug}-cli-")),
+  "0.14.1",
+  CRAFT_RELEASE_ASSETS
+    .filter((asset) => !asset.file.startsWith("{slug}-cli-"))
+    // The launcher's RISC-V binary needs glibc 2.39, including in its tarball.
+    // Keep this launcher-specific; the other apps have their own release floors.
+    .map((asset) => asset.arch === "riscv64"
+      ? { ...asset, description: `${asset.description} Requires glibc 2.39 or newer.` }
+      : asset),
 );
 
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.16.0"),
-  vectorcraft: craftRelease("0.17.0"),
-  filmcraft: craftRelease("0.13.0"),
-  lightcraft: craftRelease("0.14.0"),
-  pdfcraft: craftRelease("0.14.0"),
-  effectcraft: craftRelease("0.17.0"),
-  designcraft: craftRelease("0.13.0"),
-  figcraft: craftRelease("0.11.2"),
-  wordcraft: craftRelease("0.11.0"),
-  soundcraft: craftRelease("0.13.1"),
-  deckcraft: craftRelease("0.11.1"),
-  cadcraft: craftRelease("0.13.0"),
-  gridcraft: craftRelease("0.12.1"),
+  photocraft: craftRelease("0.20.2"),
+  vectorcraft: craftRelease("0.21.1"),
+  filmcraft: craftRelease("0.17.1"),
+  lightcraft: craftRelease("0.18.1"),
+  pdfcraft: craftRelease("0.18.2"),
+  effectcraft: craftRelease("0.21.1"),
+  designcraft: craftRelease("0.17.2"),
+  figcraft: craftRelease("0.15.1"),
+  texturecraft: craftRelease("0.3.2"),
+  materialcraft: craftRelease("0.1.2"),
+  wordcraft: craftRelease("0.15.2"),
+  soundcraft: craftRelease("0.17.1"),
+  deckcraft: craftRelease("0.15.1"),
+  cadcraft: craftRelease("0.17.1"),
+  gridcraft: craftRelease("0.16.1"),
+  "craft-anything": craftRelease("0.4.0"),
 };

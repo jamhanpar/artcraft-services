@@ -5,6 +5,7 @@ import {
   AppFamily,
   AppGallery,
   AppGetIt,
+  AppShowcase,
 } from "@/components/apps/app-sections";
 import {
   AppHeroDownloadButton,
@@ -89,12 +90,35 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const launcherDownloads = release ? craftLauncherRecommended() : [];
   const allLauncherDownloads = craftLauncherDownloads();
   const hasDownload = release !== null;
+  const communityButtons = (
+    <>
+      <DiscordButton
+        size="lg"
+        variant={hasDownload ? "secondary" : "primary"}
+      >
+        Join the Discord
+      </DiscordButton>
+      <Button
+        href={craftAppRepo(app)}
+        variant="secondary"
+        size="lg"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <GitHubIcon className="h-4 w-4" />
+        View on GitHub
+      </Button>
+    </>
+  );
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;
   const shareUrl = siteUrl(craftAppPath(app));
-  // A demo takes section 02 and pushes the rest down one.
+  // Numbered as if every optional section were there: a missing demo (02) or
+  // showcase (04, after the highlights) pulls the sections after it up one.
   const sectionIndex = (n: number) =>
-    String(n + (app.demo ? 1 : 0)).padStart(2, "0");
+    String(
+      n - (app.demo ? 0 : 1) - (!app.showcase && n > 4 ? 1 : 0),
+    ).padStart(2, "0");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -158,40 +182,28 @@ export default async function CraftAppPage({ params }: { params: Params }) {
         mediaTag="Screenshot"
       >
         <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-wrap items-start justify-center gap-3">
-            {launcherDownloads.length > 0 ? (
-              <LauncherDownloadButton
-                recommended={launcherDownloads}
-                allDownloads={allLauncherDownloads}
-                fallbackHref="#get-it"
-              />
-            ) : (
-              release && (
+          {launcherDownloads.length > 0 ? (
+            <LauncherDownloadButton
+              recommended={launcherDownloads}
+              allDownloads={allLauncherDownloads}
+              fallbackHref="#get-it"
+              centered
+            >
+              {communityButtons}
+            </LauncherDownloadButton>
+          ) : (
+            <div className="flex flex-wrap items-start justify-center gap-3">
+              {release && (
                 <AppHeroDownloadButton
                   name={name}
                   recommended={craftReleaseDownloads(app, release).filter(
                     (download) => download.recommended,
                   )}
                 />
-              )
-            )}
-            <DiscordButton
-              size="lg"
-              variant={hasDownload ? "secondary" : "primary"}
-            >
-              Join the Discord
-            </DiscordButton>
-            <Button
-              href={craftAppRepo(app)}
-              variant="secondary"
-              size="lg"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <GitHubIcon className="h-4 w-4" />
-              View on GitHub
-            </Button>
-          </div>
+              )}
+              {communityButtons}
+            </div>
+          )}
           {hasDownload && <AppHeroOtherDownloadsLink />}
           <p className="hud-label text-faint">
             {app.platforms.join(" · ")} · Free and open source
@@ -204,7 +216,7 @@ export default async function CraftAppPage({ params }: { params: Params }) {
 
       <CampaignSection
         id="highlights"
-        index={sectionIndex(2)}
+        index={sectionIndex(3)}
         label="Highlights"
         annotation={app.category}
         title={
@@ -216,9 +228,12 @@ export default async function CraftAppPage({ params }: { params: Params }) {
         <TipGrid items={app.features} columns={3} />
       </CampaignSection>
 
-      <AppGallery app={app} index={sectionIndex(3)} />
-      <AppGetIt app={app} index={sectionIndex(4)} />
-      <AppFamily app={app} index={sectionIndex(5)} />
+      {app.showcase && (
+        <AppShowcase app={app} showcase={app.showcase} index={sectionIndex(4)} />
+      )}
+      <AppGallery app={app} index={sectionIndex(5)} />
+      <AppGetIt app={app} index={sectionIndex(6)} />
+      <AppFamily app={app} index={sectionIndex(7)} />
 
       <ClosingCta
         eyebrow="Open source · Free"
