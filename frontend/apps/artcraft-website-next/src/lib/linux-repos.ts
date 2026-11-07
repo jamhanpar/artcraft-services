@@ -1,3 +1,4 @@
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "./artcraft-studio";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { unstable_cache } from "next/cache";
@@ -68,6 +69,8 @@ export type LinuxRepoApp = {
     sha256: string;
     requires: RpmRequire[];
     installedSize: number;
+    /** The release publishes a signature for this package, so dnf can verify it. */
+    signed: boolean;
   }[];
   archAssets: {
     arch: ArchPackageArch;
@@ -80,6 +83,8 @@ export type LinuxRepoApp = {
     provides: string[];
     /** `optdepend` lines exactly as the package's .PKGINFO declares them. */
     optdepends: string[];
+    /** The release publishes a .sig for this package, so pacman can verify it. */
+    signed: boolean;
   }[];
 };
 
@@ -130,6 +135,8 @@ export function getRequestBaseUrl(request: Request): string {
  * Uncatalogued filenames return null to preserve clean 404 behavior and block unauthorized redirects.
  */
 export function resolvePackageDownloadUrl(filename: string): string | null {
+  const studio = artcraftStudioDownloads().find((asset) => asset.fileName === filename);
+  if (studio) return studio.href;
   if (CRAFT_LAUNCHER_RELEASE) {
     const launcherDownloads = craftLauncherDownloads();
     const match = launcherDownloads.find((d) => d.fileName === filename);
@@ -144,7 +151,53 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
     if (match) return match.href;
   }
 
+  // Signature assets sit next to the package they cover and are not part of the download manifest,
+  // so derive them from the package they sign instead of listing every signature separately.
+  const signatureSuffix = PACKAGE_SIGNATURE_SUFFIXES.find((suffix) => filename.endsWith(suffix));
+  if (signatureSuffix) {
+    const signedUrl = resolvePackageDownloadUrl(filename.slice(0, -signatureSuffix.length));
+    if (signedUrl) return `${signedUrl}${signatureSuffix}`;
+  }
+
   return null;
+}
+
+/** Suffixes of the detached signatures release workflows publish beside their packages. */
+const PACKAGE_SIGNATURE_SUFFIXES = [".sig", ".asc"] as const;
+
+/**
+ * Whether the release actually publishes `filename` as a detached signature. The redirect would
+ * otherwise point clients at a release asset that does not exist, which pacman reports as a failed
+ * signature download.
+ */
+export async function isPackageSignaturePublished(filename: string): Promise<boolean> {
+  if (!PACKAGE_SIGNATURE_SUFFIXES.some((suffix) => filename.endsWith(suffix))) {
+    return false;
+  }
+
+  const releases: Array<{ repo: string; version: string }> = [{ repo: "artcraft", version: ARTCRAFT_STUDIO_RELEASE.version }];
+  if (CRAFT_LAUNCHER_RELEASE) {
+    releases.push({ repo: "craft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
+  }
+  for (const app of CRAFTING_APPS) {
+    const release = craftAppRelease(app);
+    if (release) {
+      releases.push({ repo: app.slug, version: release.version });
+    }
+  }
+
+  for (const release of releases) {
+    try {
+      const sums = await getShaSums(release.repo, release.version);
+      if (sums.has(filename)) {
+        return true;
+      }
+    } catch {
+      // A release whose checksums cannot be read publishes nothing verifiable.
+    }
+  }
+
+  return false;
 }
 
 export function handlePackageDownloadRedirect(pathSegments: string[] | undefined): Response {
@@ -175,7 +228,7 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   let promise = shaSumsCache.get(key);
   if (!promise) {
     promise = (async () => {
-      const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
+      const url = `https://github.com/storytold/${repo}/releases/download/${repo === "artcraft" ? "artcraft-v" : "v"}${version}/SHA256SUMS.txt`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
       const text = await res.text();
@@ -643,14 +696,19 @@ async function buildDebAssets(
     candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const glibcVer = debArch === "riscv64" ? "2.39" : "2.35";
+      let depends = defaultDepends;
+      if (name === "artcraft") {
+        depends = `libc6 (>= ${glibcVer}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`;
+      } else if (name === "artcraft-launcher" && debArch === "riscv64") {
+        depends = "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+      }
       return {
         arch: debArch,
         filename,
         size: meta.size,
         sha256: meta.sha256,
-        depends: (name === "artcraft-launcher" && debArch === "riscv64")
-          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-          : defaultDepends,
+        depends,
         recommends: defaultRecommends,
         installedSize: meta.installedSize,
       };
@@ -659,6 +717,33 @@ async function buildDebAssets(
 
   return results;
 }
+
+/**
+ * Once the repository requires signatures, it must not advertise a package no client can verify:
+ * dnf and pacman reject it, and a client that skips verification installs it unverified. Releases
+ * list their detached signatures in SHA256SUMS.txt, so anything without one is withheld until the
+ * next signed release instead of breaking the whole repository.
+ */
+export async function withholdUnsignedPackages<T extends { filename: string; signed: boolean }>(
+  assets: T[],
+): Promise<T[]> {
+  if (!(await isRepoSigningConfigured())) {
+    return assets;
+  }
+  return assets.filter((asset) => {
+    if (asset.signed) return true;
+    if (!reportedUnsignedPackages.has(asset.filename)) {
+      reportedUnsignedPackages.add(asset.filename);
+      console.warn(
+        `Withholding ${asset.filename}: the repository requires signatures but the release publishes none for it`,
+      );
+    }
+    return false;
+  });
+}
+
+/** Each withheld package is worth reporting once; catalog builds repeat on every request. */
+const reportedUnsignedPackages = new Set<string>();
 
 async function buildRpmAssets(
   name: string,
@@ -673,13 +758,17 @@ async function buildRpmAssets(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
-      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+      const glibcVer = (["artcraft-launcher", "artcraft"].includes(name) && arch === "riscv64") ? "2.39" : "2.35";
       const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
         ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
         : [];
       const requires: RpmRequire[] = [
         { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-        ...COMMON_RPM_REQUIRES,
+        ...(name === "artcraft" ? [
+          { name: "libgtk-3.so.0()(64bit)" },
+          { name: "libwebkit2gtk-4.1.so.0()(64bit)" },
+          { name: "libssl.so.3()(64bit)" },
+        ] : COMMON_RPM_REQUIRES),
         ...audioRequires,
       ];
       return {
@@ -689,11 +778,13 @@ async function buildRpmAssets(
         sha256: meta.sha256,
         requires,
         installedSize: meta.installedSize,
+        // The release workflow signs each RPM and publishes the detached signature next to it.
+        signed: sums.has(`${filename}.asc`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 
 async function buildArchAssets(
@@ -718,13 +809,24 @@ async function buildArchAssets(
         depends: meta.depends ?? DEFAULT_PACMAN_DEPENDS,
         provides: meta.provides ?? [],
         optdepends: meta.optdepends ?? [],
+        // pacman verifies the detached `.pkg.tar.zst.sig` beside each package.
+        signed: sums.has(`${filename}.sig`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
+
+/**
+ * Resets module-level Linux repository catalog, checksum, and metadata caches for isolated unit tests.
+ */
+export function resetLinuxRepoCachesForTests(): void {
+  cachedAllAppsPromise = null;
+  shaSumsCache.clear();
+  packageMetaCache.clear();
+}
 
 /**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
@@ -737,6 +839,20 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
   const compute = async (): Promise<LinuxRepoApp[]> => {
     const appPromises: Promise<LinuxRepoApp | null>[] = [];
+
+    // Studio uses the same signed package catalog as the native suite.
+    appPromises.push((async () => {
+      const version = ARTCRAFT_STUDIO_RELEASE.version;
+      const [debAssets, rpmAssets, archAssets] = await Promise.all([
+        includeDeb ? buildDebAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeRpm ? buildRpmAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeArch ? buildArchAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+      ]);
+      if (!debAssets.length && !rpmAssets.length && !archAssets.length) return null;
+      return { slug: "artcraft", name: "artcraft", version,
+        description: "ArtCraft Studio: AI image and video creation.", section: "graphics",
+        debAssets, rpmAssets, archAssets };
+    })());
 
     // Craft Launcher
     if (CRAFT_LAUNCHER_RELEASE) {
@@ -1059,12 +1175,12 @@ repo_gpgcheck=0
 `;
   }
   return `[artcraft]
+# Signed metadata and signed packages: dnf verifies repomd.xml against its signature, imports the
+# key below, and verifies the OpenPGP header signature inside every package it downloads.
 name=ArtCraft Linux Packages
 baseurl=${baseUrl}/rpm
 enabled=1
-# repomd.xml is signed; the packages themselves carry a signature from the next release on, so
-# dnf still trusts the signed metadata's digests rather than a per-package signature.
-gpgcheck=0
+gpgcheck=1
 repo_gpgcheck=1
 gpgkey=${baseUrl}/keys/artcraft.asc
 `;
@@ -1122,12 +1238,20 @@ export function buildTar(
   return Buffer.concat(blocks);
 }
 
+/**
+ * Returns the Pacman package name for a catalogued Linux app (`ai.artcraft.app` for ArtCraft Studio,
+ * and `ai.storyteller.<name>` for the Craft Launcher and Crafting Apps).
+ */
+function pacmanPkgName(app: LinuxRepoApp): string {
+  return app.slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${app.name}`;
+}
+
 export function generatePacmanDesc(
   app: LinuxRepoApp,
   asset: LinuxRepoApp["archAssets"][number],
   timestamp: number = PACMAN_REPO_TIMESTAMP,
 ): string {
-  const pkgname = `ai.storyteller.${app.name}`;
+  const pkgname = pacmanPkgName(app);
   // pacman compares these against the package's own .PKGINFO, so mirror what the package declares
   // and fall back to the shared builder's lists only when .PKGINFO could not be read.
   const provides = asset.provides.length > 0 ? asset.provides : [`${app.name}=${app.version}-1`];
@@ -1198,7 +1322,7 @@ export async function generatePacmanDb(
     const asset = app.archAssets.find((a) => a.arch === arch);
     if (!asset) continue;
 
-    const dirName = `ai.storyteller.${app.name}-${app.version}-1`;
+    const dirName = `${pacmanPkgName(app)}-${app.version}-1`;
     entries.push(
       {
         name: `${dirName}/`,
@@ -1219,9 +1343,16 @@ export async function generatePacmanDb(
 }
 
 export async function generatePacmanRepoConfig(baseUrl: string): Promise<string> {
-  const sigLevel = (await isRepoSigningConfigured()) ? "Optional DatabaseRequired" : "Optional TrustAll";
+  if (!(await isRepoSigningConfigured())) {
+    return `[artcraft]
+SigLevel = Optional TrustAll
+Server = ${baseUrl}/arch/$arch
+`;
+  }
   return `[artcraft]
-SigLevel = ${sigLevel}
+# Import the key before syncing, otherwise pacman rejects the repository:
+#   sudo pacman-key --add /tmp/artcraft.asc && sudo pacman-key --lsign-key <fingerprint>
+SigLevel = Required DatabaseRequired
 Server = ${baseUrl}/arch/$arch
 `;
 }

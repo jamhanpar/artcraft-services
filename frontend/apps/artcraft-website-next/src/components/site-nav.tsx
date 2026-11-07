@@ -37,6 +37,7 @@ const NAV_ITEMS: NavEntry[] = [
       { name: "Press Kit", href: "/press-kit" },
     ],
   },
+  { name: "Wiki", href: "https://craft.wiki" },
   { name: "Support", href: "/support" },
   { name: "Craft Apps", href: "/apps", dividerBefore: true },
 ];
@@ -79,7 +80,7 @@ export default function SiteNav() {
       id="site-nav"
       className="sticky top-0 left-0 z-50 w-full border-b border-line bg-bg/95 backdrop-blur-sm"
     >
-      <div className="flex h-12 items-stretch justify-between">
+      <div className="flex min-h-12 items-stretch justify-between">
         {/* Left: logo + nav cells */}
         <div className="flex min-w-0 items-stretch">
           <Link
@@ -98,7 +99,7 @@ export default function SiteNav() {
             delayDuration={120}
             className="hidden min-w-0 items-stretch lg:flex"
           >
-            <NavigationMenu.List className="flex h-full items-stretch">
+            <NavigationMenu.List className="flex h-full flex-wrap items-stretch">
               {NAV_ITEMS.map((entry) => {
                 const active = isEntryActive(pathname, entry);
                 const linkClasses = twMerge(
@@ -253,7 +254,10 @@ export default function SiteNav() {
 
       {/* Mobile slide-down panel */}
       {mobileOpen && (
-        <div id="mobile-nav" className="border-t border-line lg:hidden">
+        <div
+          id="mobile-nav"
+          className="max-h-[calc(100svh-3rem)] overflow-y-auto border-t border-line lg:hidden"
+        >
           <div className="flex flex-col">
             {NAV_ITEMS.map((entry) => {
               if (!isGroup(entry)) {
