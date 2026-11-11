@@ -289,6 +289,21 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       headers: { "x-forwarded-host": "attacker.example" },
     });
     expect(getRequestBaseUrl(preview)).toBe("https://deploy-preview-204--artcraft-website-next.netlify.app");
+
+    const cfPreview = new Request("https://feat-sample.getartcraft.dev/apt/artcraft.sources", {
+      headers: { "x-forwarded-host": "attacker.example" },
+    });
+    expect(getRequestBaseUrl(cfPreview)).toBe("https://feat-sample.getartcraft.dev");
+
+    const cfWorkersPreview = new Request(
+      "https://feat-sample-artcraft-services.account.workers.dev/apt/artcraft.sources",
+      {
+        headers: { "x-forwarded-host": "attacker.example" },
+      },
+    );
+    expect(getRequestBaseUrl(cfWorkersPreview)).toBe(
+      "https://feat-sample-artcraft-services.account.workers.dev",
+    );
   });
 
   test("mirrors the package's .PKGINFO provides and optdepends in the pacman database", () => {
@@ -328,7 +343,12 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   test("provides metadata and catalog for /linux setup page", async () => {
     const apps = await getLinuxRepoApps();
     // ArtCraft Studio, the launcher, and every Craft app that publishes Linux packages.
-    expect(apps).toHaveLength(18);
+    expect(apps).toHaveLength(19);
+    const anicraftApp = apps.find((app) => app.slug === "anicraft");
+    expect(anicraftApp?.version).toBe(catalogRelease("anicraft").version);
+    expect(anicraftApp?.debAssets).toHaveLength(3);
+    expect(anicraftApp?.rpmAssets).toHaveLength(3);
+    expect(anicraftApp?.archAssets).toHaveLength(2);
     const studioApp = apps.find((app) => app.slug === "artcraft");
     expect(studioApp).toBeDefined();
     expect(studioApp?.debAssets).toHaveLength(3);
