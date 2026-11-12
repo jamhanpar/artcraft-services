@@ -4,6 +4,22 @@ import { HttpApiError, LoginChallengesApi, type LoginChallengeResult, type Login
 import { captureLoginBridgeContext, clearLoginBridgeContext } from "./login-bridge-context";
 
 const EXPIRED_MESSAGE = "This login request expired. Start again in ArtCraft.";
+const FRAMED_MESSAGE = "Open this login link directly in your browser to approve it. The address of this embedded page does not contain the link.";
+
+/**
+ * True when the page is rendered inside a frame. Another site could frame the
+ * approval page, hide it under its own content and steer a click onto
+ * "Approve", handing the attacker's desktop a session for this account.
+ * Hosting also sends frame-ancestors 'none' for this route; this covers
+ * deployments that do not.
+ */
+function isFramed(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
 
 interface DesktopLoginApprovalProps {
   loggedIn: boolean;
@@ -21,9 +37,10 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
   const [finished, setFinished] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [now, setNow] = useState(Date.now);
+  const [framed] = useState(isFramed);
 
   useEffect(() => {
-    if (!token || !loggedIn || !authChecked) return;
+    if (framed || !token || !loggedIn || !authChecked) return;
     let active = true;
     setReview(null);
     setMessage("");
@@ -48,7 +65,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
         : "Unable to load this login request. Please try again.");
     });
     return () => { active = false; };
-  }, [token, loggedIn, authChecked, attempt]);
+  }, [framed, token, loggedIn, authChecked, attempt]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -61,7 +78,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
   }, [expired]);
 
   const decide = async (approve: boolean) => {
-    if (!token || !review || !loggedIn || deciding.current || finished ||
+    if (framed || !token || !review || !loggedIn || deciding.current || finished ||
         Date.now() >= Date.parse(review.expires_at)) return;
     deciding.current = true;
     setBusy(true);
@@ -81,11 +98,12 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
     }
   };
 
+  if (framed) return <Status>{FRAMED_MESSAGE}</Status>;
   if (!authChecked) return <Status>Checking your account…</Status>;
   if (!token) return <Status>Open a new login link or scan the QR code from ArtCraft.</Status>;
   if (!loggedIn) return <>{signIn}</>;
 
-  return <main className="flex min-h-svh items-center justify-center bg-[#101014] p-6 text-white">
+  return <main className="flex min-h-svh items-center justify-center bg-ui-panel p-6 text-white">
     <section className="w-full max-w-md border border-white/15 bg-white/5 p-6 sm:p-8">
       <Link to="/" className="text-sm text-white/60">ArtCraft</Link>
       <h1 className="mb-4 mt-6 text-3xl font-semibold">Log in to ArtCraft Desktop?</h1>
@@ -108,7 +126,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
 }
 
 function Status({ children }: { children: ReactNode }) {
-  return <main className="flex min-h-svh items-center justify-center bg-[#101014] p-8 text-white" role="status">{children}</main>;
+  return <main className="flex min-h-svh items-center justify-center bg-ui-panel p-8 text-white" role="status">{children}</main>;
 }
 
 function completionMessage(result: LoginChallengeResult): string | null {

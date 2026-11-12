@@ -20,6 +20,10 @@ jobs:
     outputs:
       deploy-url: ${{ steps.wait.outputs.deploy_url }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - name: Await Cloudflare deploy
         id: wait
         env:
@@ -47,6 +51,8 @@ jobs:
             echo "Testing the production deployment of ${TARGET_SHA} at ${DEPLOY_URL}..."
           fi
 
+          FAILURE_GRACE_SECONDS=120
+          failure_started_at=""
           for i in {1..90}; do
             # For PRs, extract the preview URL directly from the Cloudflare bot comment if present for this commit
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
@@ -76,8 +82,17 @@ jobs:
             CHECK_CONCLUSION=$(echo "$CHECK_DATA" | jq -r '.conclusion // empty' 2>/dev/null || true)
 
             if [[ "$CHECK_CONCLUSION" == "failure" || "$CHECK_CONCLUSION" == "timed_out" || "$CHECK_CONCLUSION" == "cancelled" ]]; then
-              echo "Error: the Cloudflare deploy check reported ${CHECK_CONCLUSION}!" >&2
-              exit 1
+              # Cloudflare may retry a failed build for this commit shortly afterward.
+              if [[ -z "$failure_started_at" ]]; then
+                failure_started_at=$SECONDS
+                echo "Cloudflare reported ${CHECK_CONCLUSION}; allowing ${FAILURE_GRACE_SECONDS}s for a retry..."
+              fi
+              if (( SECONDS - failure_started_at >= FAILURE_GRACE_SECONDS )); then
+                echo "Error: the Cloudflare deploy check still reports ${CHECK_CONCLUSION} after the ${FAILURE_GRACE_SECONDS}s grace period!" >&2
+                exit 1
+              fi
+            elif [[ "$CHECK_STATUS" == "in_progress" || "$CHECK_STATUS" == "queued" || "$CHECK_CONCLUSION" == "success" ]]; then
+              failure_started_at=""
             fi
 
             ready=0
@@ -130,6 +145,10 @@ jobs:
       run:
         working-directory: frontend/apps/artcraft-website-next
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

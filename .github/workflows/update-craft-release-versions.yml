@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -130,6 +134,10 @@ jobs:
                         .filter(
                           asset =>
                             !asset.startsWith("{slug}-cli-") &&
+                            // Studio publishes no portable, web, or FreeBSD builds.
+                            !asset.endsWith("-portable.zip") &&
+                            !asset.startsWith("{slug}-web-") &&
+                            !asset.includes("-freebsd-") &&
                             !asset.endsWith(".dmg") &&
                             !asset.endsWith(".exe") &&
                             !asset.endsWith(".msi")
@@ -252,16 +260,20 @@ jobs:
                 studio.webappDownloadsFile,
                 "utf8"
               );
-              const updatedWebapp = webappContent.replace(
-                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
-                `$1"${studioVersion}"`
-              );
-              if (updatedWebapp === webappContent) {
+              const webappVersionPattern =
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m;
+              // Test for the declaration rather than comparing the file before
+              // and after: the replace is a no-op when the version is current.
+              if (!webappVersionPattern.test(webappContent)) {
                 throw new Error(
                   "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
                 );
               }
-              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
+              webappContent = webappContent.replace(
+                webappVersionPattern,
+                (_, prefix) => `${prefix}"${studioVersion}"`
+              );
+              fs.writeFileSync(studio.webappDownloadsFile, webappContent);
             }
 
             // Update the launcher version.
@@ -336,7 +348,7 @@ jobs:
 
       - name: Create or update pull request
         id: create-pr
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: step-security/create-pull-request@50c103da2b9ca12cd5bc013fc6931051a5aa872b # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: automation/update-craft-release-versions
