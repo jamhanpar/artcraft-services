@@ -198,6 +198,33 @@ The website runs at `http://localhost:3000`. Repository-root launchers are in
 [`script/website`](./script/website). For desktop development, use the
 [ArtCraft desktop repository](https://github.com/storytold/artcraft).
 
+### Cloudflare deployment
+
+All three frontends deploy to Cloudflare Workers from this repository. Each
+Worker's build command is its app-specific `npm run build:<app>` and its deploy
+command is `npm run deploy:<app>`; those scripts select the app in
+[`cloudflare_app.sh`](./script/website/cloudflare_app.sh), so no build variable
+is needed to tell the projects apart:
+
+| Worker               | Build / deploy commands                | Hostname                  | Wrangler config                                   | Build secrets                                                |
+|----------------------|----------------------------------------|---------------------------|---------------------------------------------------|--------------------------------------------------------------|
+| `artcraft-services`  | `build:website` / `deploy:website`     | `getartcraft.com`         | `wrangler.jsonc`                                  | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
+| `artcraft-webapp`    | `build:webapp` / `deploy:webapp`       | `app.getartcraft.com`     | `frontend/apps/artcraft-webapp/wrangler.jsonc`    | none                                                         |
+| `artcraft-dashboard` | `build:dashboard` / `deploy:dashboard` | `dashboard.artcraft.team` | `frontend/apps/artcraft-dashboard/wrangler.jsonc` | none                                                         |
+
+The bare `npm run build` / `npm run deploy` pair falls back to the website and
+needs an `ARTCRAFT_APP` build variable, and the default `npx wrangler deploy`
+deploy command resolves the root config no matter which app was built. Do not use
+either for the other two Workers: the website's build runs the launcher-catalog
+signing step, and its `assets.directory`
+(`frontend/apps/artcraft-website-next/out`) does not exist in those builds.
+
+Only the website builds the website, so it is the only Worker that needs signing
+keys. The webapp's `VITE_*` variables (for example `VITE_GOOGLE_CLIENT_ID`) are
+build variables, not runtime secrets. The admin dashboard is a standalone pnpm
+app and sets `NODE_VERSION=22`; see
+[its README](./frontend/apps/artcraft-dashboard/README.md).
+
 ## Automated Craft Release Version Updates
 
 The `.github/workflows/update-craft-release-versions.yml` workflow automatically updates the release versions of the Craft Launcher and Crafting Apps.
