@@ -224,7 +224,7 @@ export function craftRelease(
 // every app above, and the /apps pages recommend it first. Its releases ship
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
 export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
-  "0.20.1",
+  "0.20.3",
   CRAFT_RELEASE_ASSETS
     .filter((asset) => !asset.file.startsWith("{slug}-cli-"))
     // The launcher's RISC-V binary needs glibc 2.39, including in its tarball.
@@ -250,9 +250,9 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   figcraft: craftRelease("0.18.1"),
   texturecraft: craftRelease("0.6.1"),
   materialcraft: craftRelease("0.4.1"),
-  wordcraft: craftRelease("0.18.1"),
+  wordcraft: craftRelease("0.19.1"),
   soundcraft: craftRelease("0.20.1"),
-  deckcraft: craftRelease("0.18.1"),
+  deckcraft: craftRelease("0.19.1"),
   cadcraft: craftRelease("0.20.1"),
   gridcraft: craftRelease("0.19.1"),
   "craft-anything": craftRelease("0.6.1"),
