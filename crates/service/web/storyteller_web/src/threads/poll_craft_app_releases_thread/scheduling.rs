@@ -52,11 +52,12 @@ impl Backoff {
 }
 
 /// Whether `app` should be requested from GitHub now. An app is due once its last fetch (by any
-/// instance) is `interval - CLOCK_SKEW_MARGIN` old. After a failure it waits a minute, then two,
+/// instance) is `interval - CLOCK_SKEW_MARGIN` old, or at once when the fleet's history for it is
+/// missing from Redis (only a full fetch writes it). After a failure it waits a minute, then two,
 /// four, … up to the interval, so one broken repository is never retried every tick.
 pub fn is_due(app: &CachedCraftApp, now: DateTime<Utc>, interval: Duration) -> bool {
   if let Some(fetched) = app.app_last_fetched {
-    if age(fetched, now) < interval.saturating_sub(CLOCK_SKEW_MARGIN) {
+    if age(fetched, now) < interval.saturating_sub(CLOCK_SKEW_MARGIN) && !app.history_missing {
       return false;
     }
   }
@@ -165,6 +166,19 @@ mod tests {
     }
 
     #[test]
+    fn a_missing_shared_history_makes_a_fresh_app_due_but_keeps_the_failure_wait() {
+      let now = Utc::now();
+      let interval = Duration::from_secs(120);
+      let mut missing = app(Some(now - secs(10)), None, 0);
+      assert!(!is_due(&missing, now, interval));
+      missing.history_missing = true;
+      assert!(is_due(&missing, now, interval));
+      let mut failing = app(Some(now - secs(20)), Some(now - secs(10)), 1);
+      failing.history_missing = true;
+      assert!(!is_due(&failing, now, interval), "a failed full fetch still waits before the next");
+    }
+
+    #[test]
     fn a_failure_older_than_the_last_fetch_is_ignored() {
       let now = Utc::now();
       let app = app(Some(now - secs(200)), Some(now - secs(300)), 5);
@@ -268,11 +282,14 @@ mod tests {
     CachedCraftApp {
       name: "PhotoCraft".into(),
       repo: "storytold/photocraft".into(),
-      latest_release: None,
+      releases: Default::default(),
       app_last_fetched: fetched,
       etag: None,
       last_failed_at: failed,
       consecutive_failures: failures,
+      history: Default::default(),
+      history_current: true,
+      history_missing: false,
     }
   }
 
