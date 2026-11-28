@@ -274,3 +274,126 @@ export type CraftNightlyRelease = {
 export const CRAFT_NIGHTLY_RELEASES: Partial<
   Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftNightlyRelease>
 > = {};
+
+/** Published immutable developer release; asset metadata is captured from the exact GitHub release. */
+export type CraftDeveloperRelease = {
+  tag: string;
+  version: string;
+  publishedAt: string;
+  /** When the updater successfully enumerated releases from GitHub. */
+  reconciledAt: string;
+  assets: { name: string; size: number; sha256?: string }[];
+};
+
+// Unlike CRAFT_NIGHTLY_RELEASES (which tracks distro packages), this also tracks portable
+// Windows, macOS and Linux builds. Updated by the same release reconciliation.
+export const CRAFT_DEVELOPER_RELEASES: Partial<
+  Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftDeveloperRelease>
+> = {
+  "cadcraft": {
+    "tag": "v0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
+    "version": "0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
+    "publishedAt": "2026-11-27T22:48:29Z",
+    "reconciledAt": "2026-11-28T05:12:29.819Z",
+    "assets": [
+      {
+        "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-linux-x86_64-nightly.tar.gz",
+        "size": 59581116,
+        "sha256": "259683ed5e3375b7adbf2e70318d8b2247a845262967f0b56e6962439f026e44"
+      },
+      {
+        "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-linux-x86_64-nightly.tar.gz.asc",
+        "size": 228,
+        "sha256": "0f8a90a8aa3fd08ce438a374d27b8c73f02a3972014a20957005726fdcf55564"
+      },
+      {
+        "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-macos-aarch64-nightly.zip",
+        "size": 53252336,
+        "sha256": "13a2344f2de2a09b50aaf22c498b3ef103b5d61fdc315d5dc7b74eba7558a239"
+      },
+      {
+        "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-windows-x86_64-nightly.zip",
+        "size": 53612594,
+        "sha256": "5eda8ce2851e308ce6ba2cda50820e8ef32af1f80bb70daf301079ee878fb5c8"
+      },
+      {
+        "name": "NIGHTLY.json",
+        "size": 2495,
+        "sha256": "28414a91a8ff492a83c2611009347cf9e048e3387d734f6f09a7cc7cfbcb335f"
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "size": 705,
+        "sha256": "f4ffa36b700d8401f2367514cb74e8ba4b11f1c75fd791a12781cecf50119a70"
+      }
+    ]
+  },
+  "gridcraft": {
+    "tag": "v0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
+    "version": "0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
+    "publishedAt": "2026-11-27T18:58:43Z",
+    "reconciledAt": "2026-11-28T05:12:31.474Z",
+    "assets": [
+      {
+        "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-linux-x86_64-nightly.tar.gz",
+        "size": 56272624,
+        "sha256": "e076ee5e1204cc2de477372be2f39b34a1e00b19559763b89a52830de7152727"
+      },
+      {
+        "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-linux-x86_64-nightly.tar.gz.asc",
+        "size": 228,
+        "sha256": "7fcbfcc9cb426a9bfc046119a6eb0cac383136aecacf0078bb8cebbefeb70243"
+      },
+      {
+        "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-macos-aarch64-nightly.zip",
+        "size": 51450231,
+        "sha256": "87f8ca89440b9ee6ea8f2c71c292a82543b39ee961bc0bdc8f707cc029c5d706"
+      },
+      {
+        "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-windows-x86_64-nightly.zip",
+        "size": 51381701,
+        "sha256": "d80d0f5ba62c18750207ee52f367fdcf483f594c4ee958515df39187cae5a1d7"
+      },
+      {
+        "name": "NIGHTLY.json",
+        "size": 2512,
+        "sha256": "5247ce9a85f762e8b2f52885674adda6e6b92f5dfb16d57aab206d7b62f72079"
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "size": 709,
+        "sha256": "37397dfa33f1af56e848bc9e7cb4dee27841092b5c672a6ab215adc3fc4584d5"
+      }
+    ]
+  }
+};
+
+export type CraftChannelRelease = {
+  /** Exact GitHub release tag (e.g. "v0.24.0-rc.1" or "v0.23.1"). */
+  tag: string;
+  /** Version without the leading "v" (e.g. "0.24.0-rc.1" or "0.23.1"). */
+  version: string;
+};
+
+// Highest-version non-nightly beta/RC prerelease per repository, updated automatically by
+// `.github/workflows/update-craft-release-versions.yml`.
+export const CRAFT_PRERELEASE_RELEASES: Partial<
+  Record<CraftAppSlug | "artcraft-launcher", CraftChannelRelease>
+> = {
+  photocraft: { tag: "v0.24.0-rc.2", version: "0.24.0-rc.2" },
+};
+
+export type CraftCommunityAppReleases = {
+  /** GitHub repository (`owner/repo`), matching the craft-launcher-assets catalog. */
+  repo: string;
+  stable?: CraftChannelRelease;
+  prerelease?: CraftChannelRelease;
+  nightly?: CraftChannelRelease;
+};
+
+// Community apps listed in the craft-launcher-assets catalog, updated automatically by
+// `.github/workflows/update-craft-release-versions.yml`.
+export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {
+  solidcraft: { repo: "tangency-labs/solidcraft", stable: { tag: "v0.51.2", version: "0.51.2" }, prerelease: { tag: "v0.51.0", version: "0.51.0" }, nightly: { tag: "v0.51.0-nightly.20261127.168.1", version: "0.51.0-nightly.20261127.168.1" } },
+  mailcraft: { repo: "UCSLabs/mailcraft", stable: { tag: "v0.15.0", version: "0.15.0" } },
+};

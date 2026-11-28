@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fetchLauncherAssets } from "./fetch-launcher-assets.mjs";
 import { signLauncherCatalog } from "./sign-launcher-catalog.mjs";
 
 const ROOT = process.cwd();
@@ -73,6 +74,15 @@ try {
 
 const jitiBin = join(ROOT, "node_modules", ".bin", "jiti");
 execFileSync(process.execPath, ["--no-warnings", jitiBin, join(ROOT, "scripts", "generate-static-repos.mjs")], {
+  stdio: "inherit",
+  env: process.env,
+});
+
+fetchLauncherAssets(join(ROOT, "out"));
+
+// Enrich out/launcher-catalog.toml with static release metadata (stable, prerelease, nightly)
+// before signing the final exported bytes.
+execFileSync(process.execPath, ["--no-warnings", jitiBin, join(ROOT, "scripts", "generate-launcher-catalog.mjs")], {
   stdio: "inherit",
   env: process.env,
 });
